@@ -11,3 +11,7 @@ chat.md
 **/*.exe
 **/*.test
 **/go.sum
+
+# Zig
+**/.zig-cache/
+**/zig-out/

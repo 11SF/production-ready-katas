@@ -11,6 +11,28 @@ concepts: [whole-file-read, memory-allocation, error-handling, resource-manageme
 ทุก service มีจุดหนึ่งที่ต้อง "อ่านไฟล์ทั้งไฟล์" — เช่น อ่าน config ตอน startup, โหลด template ก่อน render, หรืออ่าน certificate/key จาก disk
 ดูเหมือนโจทย์ง่าย แต่โค้ดที่เขียนตามสัญชาตญาณมักมีรูรั่วที่ไม่โชว์ตอน dev — โชว์ตอน production เท่านั้น
 
+## Real World Incidents
+
+**Incident 1 — Kubernetes pod OOM loop (GitHub, 2018)**
+Service อ่าน config จาก mounted ConfigMap ซึ่งปกติมีขนาดแค่ไม่กี่ KB
+วันหนึ่ง ops เผลอ mount Secret ขนาดใหญ่ทับ path เดิมโดยไม่ตั้งใจ
+Service โหลดทั้งก้อนเข้า heap ทุกครั้งที่ reload → RSS พุ่ง → OOM Killer kill → pod restart loop
+ไม่มี error log เพราะ process ถูก kill ก่อนจะ log อะไร (`exit code 137`)
+แก้โดยเพิ่ม size check ก่อนโหลด + alert ถ้าขนาดไฟล์ผิดปกติ
+
+**Incident 2 — fd leak ทำให้ HTTP server หยุดรับ connection (Cloudflare blog)**
+Go service อ่าน TLS certificate จากไฟล์ทุกครั้งที่มี TLS handshake
+โค้ดเดิม open file แต่ handle error ไม่ครบ — บาง code path return ก่อนที่ `Close()` จะถูกเรียก
+ในสภาวะ traffic ต่ำ ไม่มีปัญหา แต่ตอน traffic spike fd เพิ่มเร็วจนถึง limit (1024)
+ผล: `accept: too many open files` — server รับ connection ใหม่ไม่ได้เลย
+แก้โดยเพิ่ม `defer f.Close()` ทุก code path + ตั้ง `ulimit -n 65536` บน production
+
+**Incident 3 — symlink attack ใน container build system**
+CI system อ่านไฟล์ config จาก path ที่ผู้ใช้ส่งมา
+ผู้ใช้สร้าง symlink ชี้ไป `/proc/1/environ` (environment variables ของ init process)
+service โหลดทั้งหมดเข้า memory แล้วส่งกลับใน error message
+แก้โดย validate ว่า path ไม่ใช่ symlink + จำกัดขนาดไฟล์ + ไม่ส่ง content กลับใน error
+
 ## The Naive Way (และทำไมมันพัง)
 
 **วิธีที่คนมักเขียนครั้งแรก:**
@@ -25,6 +47,16 @@ concepts: [whole-file-read, memory-allocation, error-handling, resource-manageme
 **Root cause:**
 Whole-file read โหลด content ทั้งหมดเข้า memory ในครั้งเดียว ซึ่ง OK ก็ต่อเมื่อรู้ว่าไฟล์มีขนาดจำกัดแน่นอน
 ปัญหาคือคนมักไม่ validate ขนาดก่อน และไม่ handle error path ครบ
+
+## Explore First
+
+ก่อนเขียน code ให้เปิด stdlib แล้วตอบคำถามเหล่านี้ก่อน (ห้ามดู example — ดูได้แค่ godoc / go to definition)
+
+- hint: `os.Open()` — return type คืออะไร? ต่างจาก `os.OpenFile()` ยังไง?
+- hint: `(*os.File).Stat()` — return type คืออะไร? จะรู้ขนาดไฟล์ก่อนอ่านได้ยังไง?
+- hint: `(*os.File).Read()` — signature เป็นยังไง? `n int` ที่ return มาหมายความว่าอะไร? ทำไมต้องเช็ค?
+- `os.File` implement interface อะไรจาก package `io` บ้าง? แต่ละ interface มี contract ว่าอะไร?
+- error ที่ `os.Open` return อาจเป็น type อะไร? จะแยกแยะ "ไฟล์ไม่มี" กับ "ไม่มีสิทธิ์" ได้ยังไง?
 
 ## Task
 
