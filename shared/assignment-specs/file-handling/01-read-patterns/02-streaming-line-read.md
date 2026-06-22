@@ -1,0 +1,94 @@
+---
+tier: file-handling/01-read-patterns
+difficulty: 2
+concepts: [streaming-io, buffered-read, io-reader, line-processing]
+---
+
+# Kata: Streaming Line Read
+
+## Context
+
+Log processor, ETL pipeline, หรือ data importer ทุกตัวต้องอ่านไฟล์ขนาดใหญ่แบบ line-by-line
+ไม่มีทางรู้ล่วงหน้าว่าไฟล์จะใหญ่แค่ไหน — log file วันนี้ 10 MB พรุ่งนี้อาจ 10 GB
+
+## Real World Incidents
+
+**Incident 1 — Log aggregator OOM ใน Kubernetes (Datadog, 2019)**
+Agent อ่าน log file ด้วย `os.ReadFile` ก่อน parse
+วันที่ disk เต็มช้า log file โตไม่หยุด agent โหลดทั้งก้อนเข้า heap
+RSS พุ่งแซง memory limit → OOM kill → log หาย → alert storm
+แก้โดยเปลี่ยนมาใช้ `bufio.Scanner` อ่านทีละบรรทัด RSS คงที่ไม่ว่าไฟล์จะใหญ่แค่ไหน
+
+**Incident 2 — CSV importer timeout ใน payment service**
+Batch import ใบแจ้งหนี้ CSV ขนาด 500 MB
+โหลดทั้งไฟล์เข้า memory ก่อน process → request timeout ก่อนเสร็จ
+แก้โดย stream อ่านทีละ row process ทันที memory ใช้คงที่ที่ ~1 MB ตลอด job
+
+**Incident 3 — grep ใน monitoring tool ทำ latency spike**
+Monitoring tool สแกน application log หา error pattern ทุก 30 วินาที
+ใช้ `ioutil.ReadAll` แล้วค่อย `strings.Split` → GC pressure จากการ allocate string ใหญ่
+แก้โดยใช้ `bufio.Scanner` + `bytes.Contains` ใน callback — ไม่ allocate string ขนาดใหญ่เลย
+
+## The Naive Way (และทำไมมันพัง)
+
+**วิธีที่คนมักเขียนครั้งแรก:**
+```
+data, _ := os.ReadFile(path)
+lines := strings.Split(string(data), "\n")
+for _, line := range lines { process(line) }
+```
+
+**พังตอนไหน:**
+- ไฟล์ 1 GB → allocate string 1 GB + slice of strings อีกก้อน → RSS พุ่ง 2-3x ขนาดไฟล์
+- ต้องรอโหลดครบก่อนจึงเริ่ม process ได้ — latency สูงโดยไม่จำเป็น
+- GC ต้องเก็บ garbage ก้อนใหญ่หลัง process เสร็จ → GC pause
+
+**Root cause:**
+`strings.Split` สร้าง copy ของทุก line — memory usage เป็น O(file size) เสมอ
+Streaming อ่านทีละ chunk ใช้ memory คงที่ไม่ว่าไฟล์จะใหญ่แค่ไหน
+
+## Explore First
+
+ก่อนเขียน code ให้เปิด stdlib แล้วตอบคำถามเหล่านี้ก่อน (ห้ามดู example — ดูได้แค่ godoc / go to definition)
+
+- hint: `bufio.NewScanner()` — รับ argument อะไร? return type คืออะไร?
+- hint: `(*bufio.Scanner).Scan()` — return type คืออะไร? หยุดเมื่อไหร่?
+- hint: `(*bufio.Scanner).Text()` vs `(*bufio.Scanner).Bytes()` — ต่างกันยังไง? อันไหน allocate น้อยกว่า?
+- hint: `(*bufio.Scanner).Err()` — ทำไมต้องเช็คหลัง loop? `Scan()` return false หมายความว่าอะไรได้บ้าง?
+- `bufio.Scanner` มี default buffer size เท่าไหร่? ถ้า line ยาวกว่านั้นจะเกิดอะไร?
+
+## Task
+
+เขียนฟังก์ชัน `CountLines(path string) (int, error)` ที่:
+
+1. อ่านไฟล์ข้อความขนาดใดก็ได้แบบ streaming
+2. นับจำนวนบรรทัดทั้งหมด
+3. ใช้ memory คงที่ไม่ว่าไฟล์จะใหญ่แค่ไหน
+
+จากนั้นเขียน `GrepLines(path string, pattern string) ([]string, error)` ที่:
+
+1. อ่านแบบ streaming เช่นเดียวกัน
+2. คืน slice ของบรรทัดที่มี pattern อยู่
+3. ไม่โหลด content ทั้งหมดเข้า memory
+
+## Requirements
+
+- RSS ต้องคงที่ไม่เกิน 10 MB ไม่ว่าไฟล์จะมีขนาดเท่าไหร่
+- ต้อง handle บรรทัดที่ยาวกว่า default scanner buffer (64 KB) ได้โดยไม่ panic
+- ต้องปิด file descriptor ทุก code path
+- ต้อง handle ไฟล์ที่ไม่มี newline ต่อท้ายบรรทัดสุดท้าย
+
+## Acceptance Criteria
+
+- [ ] `CountLines` นับถูกต้องสำหรับไฟล์ปกติ
+- [ ] `CountLines` นับถูกต้องสำหรับไฟล์ที่บรรทัดสุดท้ายไม่มี `\n`
+- [ ] `CountLines` ทำงานกับไฟล์ขนาด 1 GB โดย RSS ไม่เกิน 10 MB
+- [ ] `GrepLines` คืนเฉพาะบรรทัดที่ match pattern
+- [ ] ทั้งสองฟังก์ชัน return error ถ้าไฟล์อ่านไม่ได้
+- [ ] Scanner error ถูก propagate กลับ ไม่ถูก swallow
+
+## Concepts Involved
+
+- `buffered-io` — kernel buffer vs userspace buffer, ทำไม bufio ถึงเร็ว → `shared/concepts/buffered-io.md`
+- `io-reader` — `io.Reader` interface contract, streaming abstraction → `shared/concepts/io-reader.md`
+- `memory-allocation` — heap allocation กับ GC pressure → `shared/concepts/memory-allocation.md`
