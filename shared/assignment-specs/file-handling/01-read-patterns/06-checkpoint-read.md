@@ -115,3 +115,9 @@ Checkpoint ที่ดีต้องการ atomicity (เขียนสำ
 - `atomic-write` — write temp + rename pattern → `shared/concepts/atomic-write.md`
 - `seek-lseek` — tracking และ restoring file offset → `shared/concepts/seek-lseek.md`
 - `crash-recovery` — at-least-once vs exactly-once, checkpoint ordering → `shared/concepts/crash-recovery.md`
+
+## Production Reality
+
+- **ใช้จริง:** write-to-temp + rename คือ production pattern จริงๆ ไม่มี stdlib shortcut — ต้องทำเองทุกครั้ง
+- **ทำ manual เมื่อ:** เสมอ สำหรับ durable checkpoint — library เช่น Kafka consumer ก็ใช้ pattern นี้ under the hood
+- **kata สอนว่า:** ทำไม "write แล้ว crash" ถึงอันตราย — rename atomicity ของ OS คือหัวใจของ crash-safe write

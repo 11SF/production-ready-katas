@@ -111,3 +111,9 @@ chunk := data[1000000 : 1000000+size]
 - `seek-lseek` — `lseek(2)`, `pread(2)` syscall, ทำไม `ReadAt` = `pread` → `shared/concepts/seek-lseek.md`
 - `concurrency-file` — ทำไม Seek+Read ไม่ atomic แต่ ReadAt atomic → `shared/concepts/concurrency-file.md`
 - `fd-lifecycle` — file offset state ต่อ fd → `shared/concepts/fd-lifecycle.md`
+
+## Production Reality
+
+- **ใช้จริง:** `(*os.File).ReadAt(b, off)` — atomic, thread-safe, ไม่กระทบ file offset ของ caller อื่น (map ไป `pread(2)` syscall โดยตรง)
+- **ทำ manual เมื่อ:** ไม่ต้องทำ — `ReadAt` คือ production way จริงๆ ห้ามใช้ `Seek()` + `Read()` ใน concurrent code
+- **kata สอนว่า:** `Seek` + `Read` ไม่ atomic — race condition เกิดได้ใน concurrent read ต้อง `ReadAt` เท่านั้น

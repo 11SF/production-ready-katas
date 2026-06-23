@@ -117,3 +117,9 @@ process(buf)
 - `read-contract` — POSIX `read(2)` contract, partial read คืออะไร → `shared/concepts/read-contract.md`
 - `io-reader` — `io.Reader` interface และ idiomatic usage → `shared/concepts/io-reader.md`
 - `buffered-io` — kernel buffer, userspace buffer, ทำไมบน local disk มักได้ครบ → `shared/concepts/buffered-io.md`
+
+## Production Reality
+
+- **ใช้จริง:** `io.ReadFull(r, buf)` สำหรับ exact-size read, `io.Copy` สำหรับ stream copy — stdlib จัดการ partial read ให้แล้ว
+- **ทำ manual เมื่อ:** protocol parsing ที่ต้องการ reuse buffer เพื่อ zero-allocation, หรือ chunk callback pattern
+- **kata สอนว่า:** `Read()` ใน POSIX ไม่การันตีว่าให้ครบ — `io.ReadFull` แก้ปัญหานี้ เข้าใจแล้วจะไม่เขียน `Read()` เปล่าๆ อีก

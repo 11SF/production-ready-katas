@@ -119,3 +119,9 @@ type Event struct {
 ## Concepts Involved
 
 - `datetime-timezone` — UTC, RFC3339, display vs storage → `shared/concepts/datetime-timezone.md`
+
+## Production Reality
+
+- **ใช้จริง:** wrapper type `UTCTime` ที่ implement `MarshalJSON` force UTC (เหมือนที่ kata นี้สอน) — หรือ serialize ด้วย `t.UTC().Format(time.RFC3339)` ตรงๆ ทุกจุด
+- **ทำ manual เมื่อ:** เสมอ — `time.Time` default JSON ขึ้นอยู่กับ location ใน struct ซึ่งไม่ consistent ข้าม server
+- **kata สอนว่า:** default JSON serialize ของ `time.Time` ไม่เพียงพอสำหรับ production API — ต้องกำหนด contract ว่าส่ง timezone อะไรให้ชัดเจน

@@ -110,3 +110,9 @@ return lines[max(0, len(lines)-n):]
 - `seek-lseek` — `lseek(2)` syscall, offset, whence → `shared/concepts/seek-lseek.md`
 - `io-seeker` — `io.Seeker` interface ใน Go → `shared/concepts/io-reader.md`
 - `fd-lifecycle` — file descriptor state หลัง seek → `shared/concepts/fd-lifecycle.md`
+
+## Production Reality
+
+- **ใช้จริง:** tail-read ต้องทำ manual เสมอ — ไม่มี stdlib helper สำหรับ "อ่าน N บรรทัดสุดท้าย" ต้องใช้ `Seek(0, io.SeekEnd)` เอง
+- **ทำ manual เมื่อ:** เสมอ สำหรับ tail operation — นี่คือ production pattern ไม่ใช่แค่ learning exercise
+- **kata สอนว่า:** backward seek ต้องคำนวณ offset เอง, handle newline boundary เองก่อนถึง production code ที่ถูกต้อง

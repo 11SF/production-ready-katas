@@ -116,3 +116,9 @@ type Event struct {
 ## Concepts Involved
 
 - `datetime-timezone` — UTC, offset, IANA timezone → `shared/concepts/datetime-timezone.md`
+
+## Production Reality
+
+- **ใช้จริง:** `time.Now().UTC()` เสมอสำหรับ storage — แปลง timezone เฉพาะตอน display, `TIMESTAMPTZ` สำหรับ PostgreSQL column
+- **ทำ manual เมื่อ:** ไม่มี — `.UTC()` คือทั้งหมดที่ต้องทำ การไม่ใส่ `.UTC()` คือ bug ไม่ใช่ shortcut
+- **kata สอนว่า:** timezone layer มีหลายชั้น (OS, runtime, DB connection, DB column) — bug เกิดได้จากชั้นไหนก็ได้ ต้องรู้ก่อน debug ได้

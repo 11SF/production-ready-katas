@@ -112,3 +112,9 @@ t, _ := time.Parse("2006-01-02 15:04:05", logLine)
 ## Concepts Involved
 
 - `datetime-timezone` — UTC, offset, IANA timezone, RFC3339 → `shared/concepts/datetime-timezone.md`
+
+## Production Reality
+
+- **ใช้จริง:** `time.Parse(time.RFC3339, s)` สำหรับ RFC3339 input — ถ้า input format ไม่มี timezone ต้อง `time.ParseInLocation` พร้อมระบุ location ที่รู้จาก source
+- **ทำ manual เมื่อ:** input มาจากหลาย format (เช่น log จากหลาย vendor) ต้องเขียน multi-format parser เอง
+- **kata สอนว่า:** `time.Parse` ที่ไม่มี timezone ใน format string → return UTC โดย default — "ไม่ error" ไม่ได้แปลว่า "ถูก"

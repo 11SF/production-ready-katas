@@ -116,3 +116,9 @@ logrotate เปลี่ยน path ที่ชี้ไป inode แต่ fd
 - `inotify` — Linux file system event notification → `shared/concepts/inotify.md`
 - `fd-lifecycle` — fd ผูกกับ inode ไม่ใช่ path → `shared/concepts/fd-lifecycle.md`
 - `log-rotation` — logrotate modes, SIGHUP, copytruncate → `shared/concepts/log-rotation.md`
+
+## Production Reality
+
+- **ใช้จริง:** `github.com/nxadm/tail` หรือ `github.com/fsnotify/fsnotify` — แต่ต้องรู้ว่า under the hood ใช้ inode tracking เหมือนกัน เพื่อ debug ได้เมื่อ library ทำงานผิด
+- **ทำ manual เมื่อ:** audit-critical system ที่ต้องการ control เต็ม, ภาษาที่ไม่มี library, หรือ environment ที่จำกัด dependency
+- **kata สอนว่า:** log shipper ทุกตัว (Filebeat, Fluentd, Vector) ใช้ inode tracking — เข้าใจแล้วอ่าน config และ debug ได้เองไม่ต้องเดา
