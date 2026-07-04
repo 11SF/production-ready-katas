@@ -84,6 +84,22 @@ The AI will load the kata spec, review the code against the dimensions below, an
 
 ---
 
+## Go Gotchas Checklist
+
+พฤติกรรม Go ที่คนมักหลุดโดยไม่รู้ตัว — เช็คทุกครั้งเมื่อ review Go code ไม่ว่า kata ไหน
+
+| Gotcha | อาการใน production | วิธีเช็ค |
+|---|---|---|
+| `defer` ใน loop | fd / resource สะสมจนถึง limit ตอน function return ไม่ใช่ตอนจบ iteration | มี `defer` อยู่ใน `for` loop ไหม? |
+| `defer` ก่อน error check | nil pointer panic ถ้า open/init fail | `defer` อยู่หลัง `if err != nil` แรกไหม? |
+| `%v` แทน `%w` | `errors.Is` / `errors.As` / `os.IsNotExist` ทำงานไม่ได้ เพราะ chain ขาด | error wrap ทุกจุดใช้ `%w` ไหม? |
+| ignore error จาก `Close()` | write error บน close หายเงียบ — เช่น flush ไม่สำเร็จแต่ไม่มี log | `defer f.Close()` ไม่ capture error — OK สำหรับ read, แต่ write ต้องเช็ค |
+| nil receiver method call | panic ตอน call method บน nil pointer | ตัวแปรที่ได้จาก open/init ถูก check error ก่อน defer ไหม? |
+
+> **ถ้าเจอ gotcha ใหม่ระหว่าง review kata อื่น** — ให้ถาม user ว่า "เจอ Go gotcha ใหม่ที่ยังไม่อยู่ใน list อยากเพิ่มและสร้าง challenge จาก gotcha นี้ไหม?" ถ้าใช่ → เพิ่มใน table นี้ + สร้าง challenge ตาม `skills/kata-challenge.md`
+
+---
+
 ## Concept Doc Reference
 
 When a finding falls into one of these categories, link to the relevant concept doc for deeper understanding:
@@ -167,3 +183,14 @@ Concept docs to read: [list relevant docs]
 - ✅ Pass — nothing to change
 - ⚠️ Should improve — not critical but worth fixing
 - ❌ Must fix — will break in production
+
+---
+
+## Optional: Kata Challenge
+
+หลังจบ review และ Explain It Back แล้ว ให้ถามว่า:
+
+> "อยากรับ Spot-the-Bug challenge ไหม? จะโชว์ code snippet ใหม่ที่มี bug ประเภทเดียวกัน แต่ต่าง context — ทดสอบว่าเข้าใจจริงหรือแค่จำ pattern"
+
+ถ้าตอบใช่ → ทำตาม `skills/kata-challenge.md`
+ถ้าตอบไม่ → จบ session ได้เลย
