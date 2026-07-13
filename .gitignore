@@ -7,7 +7,6 @@ chat.md
 **/target/
 
 # Kata implementations (user work — not tracked)
-go/**/*.go
 rust/**/*.rs
 zig/**/*.zig
 
