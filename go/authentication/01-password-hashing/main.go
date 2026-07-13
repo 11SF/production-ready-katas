@@ -7,10 +7,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	BCRYPT_COST int = 12
-)
-
 func main() {
 
 	pwd := "my-secret-password"
